@@ -4,7 +4,9 @@ var util = require('util');
 // Deps
 const Path = require('path');
 const JWT = require(Path.join(__dirname, '..', 'lib', 'jwtDecoder.js'));
-var http = require('https');
+
+// FIX: require twilio once at the top, not inside the execute function on every call
+const twilio = require('twilio');
 
 exports.logExecuteData = [];
 
@@ -12,127 +14,129 @@ function logData(req) {
     exports.logExecuteData.push({
         body: req.body,
         headers: req.headers,
-        trailers: req.trailers,
         method: req.method,
         url: req.url,
-        params: req.params,
-        query: req.query,
-        route: req.route,
-        cookies: req.cookies,
-        ip: req.ip,
-        path: req.path, 
-        host: req.host,
-        fresh: req.fresh,
-        stale: req.stale,
-        protocol: req.protocol,
-        secure: req.secure,
         originalUrl: req.originalUrl
     });
-    console.log("body: " + util.inspect(req.body));
-    console.log("headers: " + req.headers);
-    console.log("trailers: " + req.trailers);
-    console.log("method: " + req.method);
-    console.log("url: " + req.url);
-    console.log("params: " + util.inspect(req.params));
-    console.log("query: " + util.inspect(req.query));
-    console.log("route: " + req.route);
-    console.log("cookies: " + req.cookies);
-    console.log("ip: " + req.ip);
-    console.log("path: " + req.path);
-    console.log("host: " + req.host);
-    console.log("fresh: " + req.fresh);
-    console.log("stale: " + req.stale);
-    console.log("protocol: " + req.protocol);
-    console.log("secure: " + req.secure);
-    console.log("originalUrl: " + req.originalUrl);
+
+    // Clean structured logging — easier to read in Render logs
+    console.log('=== REQUEST LOG ===');
+    console.log('URL:', req.url);
+    console.log('Method:', req.method);
+    console.log('Body:', util.inspect(req.body, { depth: 5 }));
+    console.log('==================');
 }
 
 /*
- * POST Handler for /save/ route of Activity.
+ * POST Handler for /journeybuilder/save/
  */
 exports.save = function (req, res) {
-    console.log("5 -- For Save");	
-    console.log("4");	
-    console.log("3");	
-    console.log("2");	
-    console.log("1");	
-    console.log(req.body);
+    console.log('--- /save called ---');
     logData(req);
-    // BUG 2 FIX: was res.send(200, 'Save') — Express 4 syntax is res.status().json()
     res.status(200).json({ status: 'ok' });
 };
 
 /*
- * POST Handler for /execute/ route of Activity.
+ * POST Handler for /journeybuilder/execute/
  */
 exports.execute = function (req, res) {
-    console.log("5 -- For Execute");	
-    console.log("4");	
-    console.log("3");	
-    console.log("2");	
-    console.log("1");	
-    
+    console.log('--- /execute called ---');
+
+    // FIX: Validate that inArguments exists before destructuring
+    // Without this, if SFMC sends an unexpected payload the whole server crashes
+    if (!req.body || !req.body.inArguments || req.body.inArguments.length === 0) {
+        console.error('ERROR: inArguments missing or empty');
+        console.error('Received body:', util.inspect(req.body));
+        return res.status(400).json({ status: 'error', message: 'inArguments missing' });
+    }
+
     var requestBody = req.body.inArguments[0];
 
-    const accountSid = requestBody.accountSid;
-    const authToken = requestBody.authToken;
-    const to = requestBody.to;
-    // BUG 1 FIX: was "const from = requestBody.messagingService"
-    // Variable was named "from" but used as "messagingService" below — was undefined
+    const accountSid       = requestBody.accountSid;
+    const authToken        = requestBody.authToken;
     const messagingService = requestBody.messagingService;
-    const body = requestBody.body;
+    const body             = requestBody.body;
+    const rawTo            = requestBody.to;
 
-    const client = require('twilio')(accountSid, authToken); 
-     
-    client.messages 
-          .create({ 
-             body: body,
-             messagingService: messagingService,  // now correctly defined
-             to: to
-           }) 
-          .then(message => console.log(message.sid))
-          .catch(err => console.error('Twilio error:', err));
+    // FIX: Log what we actually received — critical for debugging
+    console.log('accountSid:', accountSid ? accountSid.substring(0, 8) + '...' : 'MISSING');
+    console.log('messagingService:', messagingService || 'MISSING');
+    console.log('to (raw from DE):', rawTo || 'MISSING');
+    console.log('body:', body || 'MISSING');
+
+    // FIX: Validate all required fields are present before calling Twilio
+    if (!accountSid || !authToken || !messagingService || !body || !rawTo) {
+        console.error('ERROR: One or more required fields missing in inArguments[0]');
+        console.error('Full requestBody:', util.inspect(requestBody));
+        return res.status(400).json({ status: 'error', message: 'Missing required fields' });
+    }
+
+    // FIX: E.164 format — Twilio requires numbers to start with +
+    // Your DE stores "918290101825" but Twilio needs "+918290101825"
+    const to = rawTo.startsWith('+') ? rawTo : '+' + rawTo;
+    console.log('to (formatted for Twilio):', to);
+
+    // FIX: Respond to SFMC FIRST, then make the Twilio call
+    // SFMC has a 2-second timeout — if Twilio takes longer, SFMC marks it as failed
+    // The SMS still sends fine after the response is sent
+    res.status(200).json({ status: 'ok' });
+
+    // Twilio call happens after SFMC response — result is logged to Render
+    const client = twilio(accountSid, authToken);
+
+    client.messages
+        .create({
+            body: body,
+            messagingService: messagingService,
+            to: to
+        })
+        .then(message => {
+            // These logs appear in your Render dashboard → Logs tab
+            console.log('SUCCESS: SMS sent');
+            console.log('Message SID:', message.sid);
+            console.log('To:', message.to);
+            console.log('Status:', message.status);
+        })
+        .catch(err => {
+            // FIX: Full Twilio error logging with error code
+            // Look up the code at: https://www.twilio.com/docs/api/errors
+            // Common codes:
+            //   21211 = invalid 'To' phone number format
+            //   21608 = trial account cannot send to unverified numbers
+            //   21606 = number not enabled for SMS in this region
+            console.error('TWILIO ERROR: SMS failed to send');
+            console.error('Error Code:', err.code);
+            console.error('Error Message:', err.message);
+            console.error('More Info:', err.moreInfo);
+            console.error('To number attempted:', to);
+        });
 
     logData(req);
-    // BUG 2 FIX: was res.send(200, 'Publish')
-    res.status(200).json({ status: 'ok' });
 };
 
-
 /*
- * POST Handler for /publish/ route of Activity.
+ * POST Handler for /journeybuilder/publish/
  */
 exports.publish = function (req, res) {
-    console.log("5 -- For Publish");	
-    console.log("4");	
-    console.log("3");	
-    console.log("2");	
-    console.log("1");	
-    // BUG 3 FIX: logData and res.send were both commented out
-    // SFMC was waiting for a response and timing out — journey would never activate
+    console.log('--- /publish called ---');
     logData(req);
     res.status(200).json({ status: 'ok' });
 };
 
 /*
- * POST Handler for /validate/ route of Activity.
+ * POST Handler for /journeybuilder/validate/
  */
 exports.validate = function (req, res) {
-    console.log("5 -- For Validate");	
-    console.log("4");	
-    console.log("3");	
-    console.log("2");	
-    console.log("1");	
+    console.log('--- /validate called ---');
     logData(req);
-    // BUG 2 FIX: was res.send(200, 'Validate')
     res.status(200).json({ status: 'ok' });
 };
 
 /*
- * POST Handler for /stop/ route of Activity.
+ * POST Handler for /journeybuilder/stop/
  */
 exports.stop = function (req, res) {
-    console.log("5 -- For Stop");	
+    console.log('--- /stop called ---');
     logData(req);
     res.status(200).json({ status: 'ok' });
 };

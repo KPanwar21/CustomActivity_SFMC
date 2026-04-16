@@ -8,60 +8,60 @@
     "lang": {
        "en-US": {
            "name": "Twilio SMS",
-           "description": "Send Twilio SMS with Journey Builder",
-           "TwilioMessage":"test"
+           "description": "Send Twilio SMS with Journey Builder"
        }
     },
     "arguments": {
         "execute": {
             "inArguments": [
                 {
-                  "email": "{{Contact.Attribute.Twilio_SMS_DE.EmailAddress}}",
+                  "email": "{{Contact.Default.EmailAddress}}",
+
                   "to": "{{Contact.Attribute.Twilio_SMS_DE.Phone}}"
-                }               
+                }
             ],
             "outArguments": [],
-            "url": "https://customactivity-sfmc.onrender.com/journeybuilder/execute",
+            "url": "https://YOUR-APP-NAME.onrender.com/journeybuilder/execute",
             "verb": "POST",
             "body": "",
             "format": "json",
             "useJwt": false,
-            "timeout": 2000
+            "timeout": 10000
         }
     },
     "configurationArguments": {
-      "applicationExtensionKey": "5a5042cf-36c1-4953-9ccc-5f4dbfb23857",
+      "applicationExtensionKey": "PASTE-YOUR-SFMC-UNIQUE-KEY-HERE",
        "save": {
-           "url": "https://customactivity-sfmc.onrender.com/journeybuilder/save",
+           "url": "https://YOUR-APP-NAME.onrender.com/journeybuilder/save",
             "verb": "POST",
             "body": "",
             "format": "json",
             "useJwt": false,
-            "timeout": 2000
+            "timeout": 10000
        },
        "publish": {
-           "url": "https://customactivity-sfmc.onrender.com/journeybuilder/publish",
+           "url": "https://YOUR-APP-NAME.onrender.com/journeybuilder/publish",
             "verb": "POST",
             "body": "",
             "format": "json",
             "useJwt": false,
-            "timeout": 2000
+            "timeout": 10000
        },
        "validate": {
-           "url": "https://customactivity-sfmc.onrender.com/journeybuilder/validate",
+           "url": "https://YOUR-APP-NAME.onrender.com/journeybuilder/validate",
             "verb": "POST",
             "body": "",
             "format": "json",
             "useJwt": false,
-            "timeout": 2000
+            "timeout": 10000
        },
        "stop": {
-           "url": "https://customactivity-sfmc.onrender.com/journeybuilder/stop",
+           "url": "https://YOUR-APP-NAME.onrender.com/journeybuilder/stop",
             "verb": "POST",
             "body": "",
             "format": "json",
             "useJwt": false,
-            "timeout": 2000
+            "timeout": 10000
        }
     },
     "wizardSteps": [
@@ -82,37 +82,37 @@
                         "accountSid": {
                             "dataType": "String",
                             "isNullable": false,
-                            "direction": "out"   
+                            "direction": "out"
                         }
-                    },                    
+                    },
                     {
                         "authToken": {
                             "dataType": "String",
                             "isNullable": false,
-                            "direction": "out"   
+                            "direction": "out"
                         }
-                    },                    
+                    },
                     {
                         "messagingService": {
                             "dataType": "String",
                             "isNullable": false,
-                            "direction": "out"   
+                            "direction": "out"
                         }
-                    },                    
+                    },
                     {
                         "to": {
                             "dataType": "Phone",
                             "isNullable": false,
-                            "direction": "out"   
+                            "direction": "out"
                         }
                     },
                     {
                         "body": {
                             "dataType": "String",
                             "isNullable": false,
-                            "direction": "out"   
+                            "direction": "out"
                         }
-                    },                    
+                    },
                     {
                         "email": {
                             "dataType": "Email",

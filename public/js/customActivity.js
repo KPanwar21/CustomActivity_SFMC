@@ -10,7 +10,6 @@ define([
     var steps = [
         { "label": "Create SMS Message", "key": "step1" }
     ];
-    var currentStep = steps[0].key;
 
     $(window).ready(onRender);
 
@@ -26,7 +25,7 @@ define([
     }
 
     function initialize(data) {
-        console.log("Initializing activity data: " + JSON.stringify(data));
+        console.log("initActivity received: " + JSON.stringify(data));
 
         if (data) {
             payload = data;
@@ -39,11 +38,11 @@ define([
             payload['arguments'].execute.inArguments.length > 0
         );
 
-        var inArguments = hasInArguments ? payload['arguments'].execute.inArguments : {};
+        var inArguments = hasInArguments ? payload['arguments'].execute.inArguments : [];
 
         console.log('inArguments on load: ' + JSON.stringify(inArguments));
 
-        // Populate the form fields with previously saved values
+        // Populate form fields with previously saved values
         $.each(inArguments, function (index, inArgument) {
             $.each(inArgument, function (key, val) {
                 if (key === 'accountSid')       { $('#accountSID').val(val); }
@@ -74,22 +73,41 @@ define([
         var messagingService = $('#messagingService').val();
         var body             = $('#messageBody').val();
 
-        payload['arguments'].execute.inArguments = [{
-            "accountSid":       accountSid,
-            "authToken":        authToken,
-            "messagingService": messagingService,
-            "body":             body,
+        // KEY FIX: Do NOT replace the entire inArguments array.
+        // Instead, find each existing inArgument object and update only
+        // the fields the user filled in. This preserves the "to" field
+        // which config.json sets as {{Contact.Attribute.Twilio_SMS_DE.Phone}}
+        // — SFMC resolves that template at execute time using the contact's data.
+        // If we overwrite the whole array here, we destroy that template.
 
-            // FIX: Updated to match your actual Data Extension name and Phone column
-            // Format: {{Contact.Attribute.YOUR_DE_NAME.YOUR_COLUMN_NAME}}
-            // Your DE name: Twilio_SMS_DE
-            // Your phone column: Phone
-            "to": "{{Contact.Attribute.Twilio_SMS_DE.Phone}}"
-        }];
+        var existingArgs = payload['arguments'].execute.inArguments;
+
+        // Build a merged object: start from existing values, then apply user inputs
+        var merged = {};
+
+        // Step 1: flatten all existing inArgument objects into merged
+        $.each(existingArgs, function(i, argObj) {
+            $.each(argObj, function(key, val) {
+                merged[key] = val;
+            });
+        });
+
+        // Step 2: apply user-entered values on top (these override existing)
+        merged['accountSid']       = accountSid;
+        merged['authToken']        = authToken;
+        merged['messagingService'] = messagingService;
+        merged['body']             = body;
+        // NOTE: we do NOT set merged['to'] here — we keep whatever
+        // config.json provided (the {{Contact.Attribute...}} template)
+
+        // Step 3: write back as a single inArgument object
+        payload['arguments'].execute.inArguments = [ merged ];
 
         payload['metaData'].isConfigured = true;
 
-        console.log("Saving payload: " + JSON.stringify(payload));
+        console.log("Saving payload — to value preserved as: " + merged['to']);
+        console.log("Full payload: " + JSON.stringify(payload));
+
         connection.trigger('updateActivity', payload);
     }
 

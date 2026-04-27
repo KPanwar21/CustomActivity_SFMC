@@ -1,22 +1,26 @@
 {
     "workflowApiVersion": "1.1",
     "metaData": {
-       "icon": "images/iconSmall.png",
-       "category": "message"
+        "icon": "images/iconSmall.png",
+        "category": "message"
     },
     "type": "REST",
     "lang": {
-       "en-US": {
-           "name": "Twilio SMS",
-           "description": "Send Twilio SMS with Journey Builder"
-       }
+        "en-US": {
+            "name": "Twilio SMS",
+            "description": "Send Twilio SMS with Journey Builder"
+        }
     },
     "arguments": {
         "execute": {
             "inArguments": [
                 {
-                    "email": "{{Contact.Default.EmailAddress}}",
-                    "to":    "{{Contact.Attribute.Twilio_SMS_DE.Phone}}"
+                    "accountSid":       "",
+                    "authToken":        "",
+                    "messagingService": "",
+                    "body":             "",
+                    "to":               "{{Contact.Attribute.Twilio_SMS_DE.Phone}}",
+                    "email":            "{{Contact.Default.EmailAddress}}"
                 }
             ],
             "outArguments": [],
@@ -29,7 +33,7 @@
         }
     },
     "configurationArguments": {
-        "applicationExtensionKey": "REPLACE_WITH_YOUR_SFMC_UNIQUE_KEY",
+        "applicationExtensionKey": "5a5042cf-36c1-4953-9ccc-5f4dbfb23857",
         "save": {
             "url":     "https://customactivity-sfmc.onrender.com/journeybuilder/save",
             "verb":    "POST",
@@ -77,48 +81,12 @@
         "arguments": {
             "execute": {
                 "inArguments": [
-                    {
-                        "accountSid": {
-                            "dataType":   "String",
-                            "isNullable": false,
-                            "direction":  "out"
-                        }
-                    },
-                    {
-                        "authToken": {
-                            "dataType":   "String",
-                            "isNullable": false,
-                            "direction":  "out"
-                        }
-                    },
-                    {
-                        "messagingService": {
-                            "dataType":   "String",
-                            "isNullable": false,
-                            "direction":  "out"
-                        }
-                    },
-                    {
-                        "to": {
-                            "dataType":   "Phone",
-                            "isNullable": false,
-                            "direction":  "out"
-                        }
-                    },
-                    {
-                        "body": {
-                            "dataType":   "String",
-                            "isNullable": false,
-                            "direction":  "out"
-                        }
-                    },
-                    {
-                        "email": {
-                            "dataType":   "Email",
-                            "isNullable": true,
-                            "direction":  "out"
-                        }
-                    }
+                    { "accountSid":       { "dataType": "String", "isNullable": false, "direction": "out" } },
+                    { "authToken":        { "dataType": "String", "isNullable": false, "direction": "out" } },
+                    { "messagingService": { "dataType": "String", "isNullable": false, "direction": "out" } },
+                    { "to":               { "dataType": "Phone",  "isNullable": false, "direction": "out" } },
+                    { "body":             { "dataType": "String", "isNullable": false, "direction": "out" } },
+                    { "email":            { "dataType": "Email",  "isNullable": true,  "direction": "out" } }
                 ],
                 "outArguments": []
             }

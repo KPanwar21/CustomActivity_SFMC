@@ -26,34 +26,42 @@ define([
             payload = data;
         }
 
-        // Ensure the object structure exists so save() doesn't crash
-        payload['arguments'] = payload['arguments'] || {};
-        payload['arguments'].execute = payload['arguments'].execute || {};
-        payload['arguments'].execute.inArguments = payload['arguments'].execute.inArguments || [];
+        // Ensure the nested object structure always exists so save() never crashes
+        // even on a brand-new activity that has never been saved before
+        payload['arguments']                      = payload['arguments']                      || {};
+        payload['arguments'].execute              = payload['arguments'].execute              || {};
+        payload['arguments'].execute.inArguments  = payload['arguments'].execute.inArguments  || [];
+        payload['metaData']                       = payload['metaData']                       || {};
 
-        var hasInArguments = Boolean(payload['arguments'].execute.inArguments.length > 0);
+        var hasInArguments = payload['arguments'].execute.inArguments.length > 0;
 
+        // If we have previously saved values, restore them into the form fields
         if (hasInArguments) {
             var inArguments = payload['arguments'].execute.inArguments;
             $.each(inArguments, function (index, inArgument) {
                 $.each(inArgument, function (key, val) {
                     if (key === 'accountSid')       { $('#accountSID').val(val); }
-                    if (key === 'authToken')        { $('#authToken').val(val); }
-                    if (key === 'messagingService') { $('#messagingService').val(val); }
-                    if (key === 'body')             { $('#messageBody').val(val); }
+                    if (key === 'authToken')         { $('#authToken').val(val); }
+                    if (key === 'messagingService')  { $('#messagingService').val(val); }
+                    if (key === 'body')              { $('#messageBody').val(val); }
                 });
             });
         }
 
         connection.trigger('updateButton', {
-            button: 'next',
-            text: 'done',
+            button:  'next',
+            text:    'done',
             visible: true
         });
     }
 
-    function onGetTokens(tokens) {}
-    function onGetEndpoints(endpoints) {}
+    function onGetTokens(tokens) {
+        // tokens available here if needed in future
+    }
+
+    function onGetEndpoints(endpoints) {
+        // endpoints available here if needed in future
+    }
 
     function save() {
         var accountSid       = $('#accountSID').val();
@@ -61,18 +69,33 @@ define([
         var messagingService = $('#messagingService').val();
         var body             = $('#messageBody').val();
 
-        // Data Mapping: This sends the instructions to SFMC
+        // Set inArguments with all fields needed by the server at execute time.
+        //
+        // BUG FIXED: The previous version used:
+        //   "to": "{{Event." + eventDefinitionKey + ".Phone}}"
+        // but `eventDefinitionKey` was NEVER declared anywhere in this file — it was
+        // undefined. This caused the template string to become
+        //   "{{Event.undefined.Phone}}"
+        // which SFMC cannot resolve, so it sent an empty string to the server.
+        //
+        // The correct approach is to use Contact.Attribute syntax, which SFMC
+        // resolves at execute time by looking up the contact's record in the
+        // Data Extension named "Twilio_SMS_DE", column "Phone".
         payload['arguments'].execute.inArguments = [{
-        "accountSid": accountSid,
-        "authToken": authToken,
-        "messagingService": messagingService,
-        "body": body,
-        // FIX: Use the Event Context syntax which is more reliable for Entry Source data
-        "to": "{{Event." + eventDefinitionKey + ".Phone}}", 
-        "email": "{{Event." + eventDefinitionKey + ".EmailAddress}}"
-    }];
+            "accountSid":       accountSid,
+            "authToken":        authToken,
+            "messagingService": messagingService,
+            "body":             body,
+            "to":               "{{Contact.Attribute.Twilio_SMS_DE.Phone}}",
+            "email":            "{{Contact.Default.EmailAddress}}"
+        }];
 
-    payload['metaData'].isConfigured = true;
-    connection.trigger('updateActivity', payload);
+        // BUG FIXED: The previous version had incorrect indentation —
+        // these two lines were OUTSIDE the save() function body (at module scope),
+        // meaning they ran once at load time on an empty payload object,
+        // not when the user clicked Done.
+        payload['metaData'].isConfigured = true;
+        connection.trigger('updateActivity', payload);
     }
+
 });

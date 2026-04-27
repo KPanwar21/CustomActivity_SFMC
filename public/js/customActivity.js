@@ -63,16 +63,16 @@ define([
 
         // Data Mapping: This sends the instructions to SFMC
         payload['arguments'].execute.inArguments = [{
-            "accountSid": accountSid,
-            "authToken": authToken,
-            "messagingService": messagingService,
-            "body": body,
-            "to": "{{Contact.Attribute.Twilio_SMS_DE.Phone}}",
-            "email": "{{Contact.Attribute.Twilio_SMS_DE.EmailAddress}}"
-        }];
+        "accountSid": accountSid,
+        "authToken": authToken,
+        "messagingService": messagingService,
+        "body": body,
+        // FIX: Use the Event Context syntax which is more reliable for Entry Source data
+        "to": "{{Event." + eventDefinitionKey + ".Phone}}", 
+        "email": "{{Event." + eventDefinitionKey + ".EmailAddress}}"
+    }];
 
-        payload['metaData'].isConfigured = true;
-
-        connection.trigger('updateActivity', payload);
+    payload['metaData'].isConfigured = true;
+    connection.trigger('updateActivity', payload);
     }
 });

@@ -1,30 +1,17 @@
 'use strict';
 
-// Deps
-var activity = require('./activity');
+// BUG FIXED: The original used req.session.token and res.render()
+// but the app has no session middleware and no view engine configured.
+// Calling req.session.token crashes with "Cannot read properties of undefined".
+// Calling res.render() crashes with "No default engine was specified".
+// These routes are only used for login/logout redirects — simplified to be safe.
 
-/*
- * GET home page.
- */
-exports.index = function(req, res){
-    if( !req.session.token ) {
-        res.render( 'index', {
-            title: 'Unauthenticated',
-            errorMessage: 'This app may only be loaded via Salesforce Marketing Cloud',
-        });
-    } else {
-        res.render( 'index', {
-            title: 'Journey Builder Activity',
-            results: activity.logExecuteData,
-        });
-    }
+exports.login = function(req, res) {
+    console.log('login called');
+    res.redirect('/');
 };
 
-exports.login = function( req, res ) {
-    console.log( 'req.body: ', req.body ); 
-    res.redirect( '/' );
-};
-
-exports.logout = function( req, res ) {
-    req.session.token = '';
+exports.logout = function(req, res) {
+    console.log('logout called');
+    res.redirect('/');
 };

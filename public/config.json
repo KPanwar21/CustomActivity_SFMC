@@ -20,7 +20,7 @@
                     "messagingService": "",
                     "body":             "",
                     "to":               "{{Contact.Attribute.Twilio_SMS_DE.Phone}}",
-                    "email":            "{{Contact.Attribute.Twilio_SMS_DE.EmailAddress}}"
+                    "email":            "{{Contact.Default.EmailAddress}}"
                 }
             ],
             "outArguments": [],

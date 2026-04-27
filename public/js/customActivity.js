@@ -7,9 +7,6 @@ define([
 
     var connection = new Postmonger.Session();
     var payload = {};
-    var steps = [
-        { "label": "Create SMS Message", "key": "step1" }
-    ];
 
     $(window).ready(onRender);
 
@@ -25,12 +22,13 @@ define([
     }
 
     function initialize(data) {
-        console.log("initActivity received: " + JSON.stringify(data));
+        console.log('initActivity received: ' + JSON.stringify(data));
 
         if (data) {
             payload = data;
         }
 
+        // Check if we have previously saved inArguments to pre-fill the form
         var hasInArguments = Boolean(
             payload['arguments'] &&
             payload['arguments'].execute &&
@@ -38,33 +36,33 @@ define([
             payload['arguments'].execute.inArguments.length > 0
         );
 
-        var inArguments = hasInArguments ? payload['arguments'].execute.inArguments : [];
+        if (hasInArguments) {
+            var inArguments = payload['arguments'].execute.inArguments;
+            console.log('Restoring saved values: ' + JSON.stringify(inArguments));
 
-        console.log('inArguments on load: ' + JSON.stringify(inArguments));
-
-        // Populate form fields with previously saved values
-        $.each(inArguments, function (index, inArgument) {
-            $.each(inArgument, function (key, val) {
-                if (key === 'accountSid')       { $('#accountSID').val(val); }
-                if (key === 'authToken')         { $('#authToken').val(val); }
-                if (key === 'messagingService')  { $('#messagingService').val(val); }
-                if (key === 'body')              { $('#messageBody').val(val); }
+            $.each(inArguments, function (index, inArgument) {
+                $.each(inArgument, function (key, val) {
+                    if (key === 'accountSid')      { $('#accountSID').val(val); }
+                    if (key === 'authToken')        { $('#authToken').val(val); }
+                    if (key === 'messagingService') { $('#messagingService').val(val); }
+                    if (key === 'body')             { $('#messageBody').val(val); }
+                });
             });
-        });
+        }
 
         connection.trigger('updateButton', {
             button: 'next',
-            text: 'done',
+            text:    'done',
             visible: true
         });
     }
 
     function onGetTokens(tokens) {
-        console.log("Tokens: " + JSON.stringify(tokens));
+        console.log('Tokens: ' + JSON.stringify(tokens));
     }
 
     function onGetEndpoints(endpoints) {
-        console.log("Endpoints: " + JSON.stringify(endpoints));
+        console.log('Endpoints: ' + JSON.stringify(endpoints));
     }
 
     function save() {
@@ -73,40 +71,29 @@ define([
         var messagingService = $('#messagingService').val();
         var body             = $('#messageBody').val();
 
-        // KEY FIX: Do NOT replace the entire inArguments array.
-        // Instead, find each existing inArgument object and update only
-        // the fields the user filled in. This preserves the "to" field
-        // which config.json sets as {{Contact.Attribute.Twilio_SMS_DE.Phone}}
-        // — SFMC resolves that template at execute time using the contact's data.
-        // If we overwrite the whole array here, we destroy that template.
+        console.log('Saving — accountSid: ' + accountSid);
+        console.log('Saving — messagingService: ' + messagingService);
+        console.log('Saving — body: ' + body);
 
-        var existingArgs = payload['arguments'].execute.inArguments;
-
-        // Build a merged object: start from existing values, then apply user inputs
-        var merged = {};
-
-        // Step 1: flatten all existing inArgument objects into merged
-        $.each(existingArgs, function(i, argObj) {
-            $.each(argObj, function(key, val) {
-                merged[key] = val;
-            });
-        });
-
-        // Step 2: apply user-entered values on top (these override existing)
-        merged['accountSid']       = accountSid;
-        merged['authToken']        = authToken;
-        merged['messagingService'] = messagingService;
-        merged['body']             = body;
-        // NOTE: we do NOT set merged['to'] here — we keep whatever
-        // config.json provided (the {{Contact.Attribute...}} template)
-
-        // Step 3: write back as a single inArgument object
-        payload['arguments'].execute.inArguments = [ merged ];
+        // Set the full inArguments explicitly.
+        // The "to" field uses the SFMC attribute template string.
+        // SFMC resolves {{Contact.Attribute.X.Y}} at execute time
+        // by substituting the real contact's field value.
+        // This must be set here as a string — SFMC stores it and resolves it later.
+        payload['arguments'].execute.inArguments = [
+            {
+                "accountSid":       accountSid,
+                "authToken":        authToken,
+                "messagingService": messagingService,
+                "body":             body,
+                "to":               "{{Contact.Attribute.Twilio_SMS_DE.Phone}}",
+                "email":            "{{Contact.Default.EmailAddress}}"
+            }
+        ];
 
         payload['metaData'].isConfigured = true;
 
-        console.log("Saving payload — to value preserved as: " + merged['to']);
-        console.log("Full payload: " + JSON.stringify(payload));
+        console.log('Full payload being saved: ' + JSON.stringify(payload));
 
         connection.trigger('updateActivity', payload);
     }

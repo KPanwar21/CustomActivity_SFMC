@@ -1,60 +1,156 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>TESTING: Custom Journey Builder Activity</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
-    <script type="text/javascript" src="js/require.js"></script>
-    <script type="text/javascript">
-        (function() {
-            var config = {
-                baseUrl: 'js'
-            };
+    <title>Twilio SMS Journey Builder Activity</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
 
-            var dependencies = [
-                'customActivity'
-            ];
+    <!-- jQuery MUST load before postmonger -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 
-            require(config, dependencies); 
-        })();
-    </script>
+    <!-- Postmonger handles all communication with SFMC Journey Builder -->
+    <script src="js/postmonger.js"></script>
 
-    <!--Styles-->
-    <style type="text/css">
-        body {
-            padding: 20px;
-            margin: 0;
-        }
-        #step1 {
-            display: block;
-        }
+    <style>
+        body { padding: 20px; margin: 0; background: #fff; }
+        .form-group label { font-weight: 500; }
+        #status { margin-top: 10px; font-size: 13px; color: #666; }
     </style>
-
 </head>
 <body>
-<div id="step1" class="step">
-    <h2>Create a Twilio SMS message:</h2>
-    <p>Twilio's Programmable SMS has the features you’ll need to build quickly and scale to production. We’ve solved the hard problems so you don’t have to.  <a href="https://www.twilio.com/sms" target="_blank">Learn more about about Twilio SMS here</a>.</p>
-    <hr>
-    <div class="form-group">
-        <div><label for="messageBody">Create message body:</label></div>
-        <input class="form-control" id="messageBody" type="text" name="messageBody" value="">        
-    </div>           
-    <div class="form-group">
-        <div><label for="messagingService">Messaging Service SID:</label></div>
-        <input class="form-control" id="messagingService" type="text" name="messagingService" value="">
-    </div>     
-    <div class="form-group">
-        <div><label for="accountSID">Account SID:</label></div>
-        <input class="form-control" id="accountSID" type="text" name="accountSID" value="">
-    </div>
-    <div class="form-group">
-        <div><label for="authToken">Auth Token:</label></div>
-        <input class="form-control" id="authToken" type="text" name="authToken" value="">
-    </div>    
 
+<div id="step1">
+    <h4>Create a Twilio SMS Message</h4>
+    <hr>
+
+    <div class="form-group">
+        <label for="messageBody">Message Body</label>
+        <input class="form-control" id="messageBody" type="text" placeholder="Enter your SMS message text">
+    </div>
+
+    <div class="form-group">
+        <label for="messagingService">Messaging Service SID</label>
+        <input class="form-control" id="messagingService" type="text" placeholder="MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+    </div>
+
+    <div class="form-group">
+        <label for="accountSID">Account SID</label>
+        <input class="form-control" id="accountSID" type="text" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+    </div>
+
+    <div class="form-group">
+        <label for="authToken">Auth Token</label>
+        <input class="form-control" id="authToken" type="password" placeholder="Your Twilio Auth Token">
+    </div>
+
+    <div id="status">Connecting to Journey Builder...</div>
 </div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// All Postmonger logic is inline here — no require.js, no AMD, no module system.
+// This is the most reliable way to communicate with SFMC Journey Builder.
+// ─────────────────────────────────────────────────────────────────────────────
+
+var connection = new Postmonger.Session();
+var payload    = {};
+var initialized = false;
+
+// ── Step 1: Tell SFMC the page is ready as soon as DOM loads ─────────────────
+$(document).ready(function() {
+    console.log('[CA] DOM ready — triggering ready');
+    $('#status').text('Connecting to Journey Builder...');
+    connection.trigger('ready');
+});
+
+// ── Step 2: SFMC responds with the saved activity data ───────────────────────
+connection.on('initActivity', function(data) {
+    console.log('[CA] initActivity received:', JSON.stringify(data));
+    initialized = true;
+
+    if (data) {
+        payload = data;
+    }
+
+    // Make sure nested structure always exists
+    payload['arguments']                     = payload['arguments']                     || {};
+    payload['arguments'].execute             = payload['arguments'].execute             || {};
+    payload['arguments'].execute.inArguments = payload['arguments'].execute.inArguments || [];
+    payload['metaData']                      = payload['metaData']                      || {};
+
+    // Restore previously saved form values if they exist
+    var args = payload['arguments'].execute.inArguments;
+    if (args && args.length > 0) {
+        $.each(args[0], function(key, val) {
+            if (key === 'accountSid')       $('#accountSID').val(val);
+            if (key === 'authToken')        $('#authToken').val(val);
+            if (key === 'messagingService') $('#messagingService').val(val);
+            if (key === 'body')             $('#messageBody').val(val);
+        });
+        console.log('[CA] Form restored with saved values');
+    }
+
+    $('#status').text('Ready. Fill in the fields and click Done.');
+
+    // Show the Done button in the SFMC modal footer
+    connection.trigger('updateButton', {
+        button:  'next',
+        text:    'done',
+        visible: true,
+        enabled: true
+    });
+});
+
+// ── Step 3: User clicks Done — save the activity ─────────────────────────────
+connection.on('clickedNext', function() {
+    console.log('[CA] clickedNext fired');
+
+    var accountSid       = $('#accountSID').val().trim();
+    var authToken        = $('#authToken').val().trim();
+    var messagingService = $('#messagingService').val().trim();
+    var body             = $('#messageBody').val().trim();
+
+    console.log('[CA] Form values — accountSid:', accountSid ? accountSid.substring(0,8)+'...' : 'EMPTY');
+    console.log('[CA] Form values — messagingService:', messagingService || 'EMPTY');
+    console.log('[CA] Form values — body:', body || 'EMPTY');
+
+    // Validate — don't save if fields are empty
+    if (!accountSid || !authToken || !messagingService || !body) {
+        $('#status').text('⚠️ Please fill in all fields before clicking Done.');
+        console.warn('[CA] Save aborted — one or more fields empty');
+        return;
+    }
+
+    // Write credentials + contact attribute template into inArguments.
+    // SFMC resolves {{Contact.Attribute.Twilio_SMS_DE.Phone}} at execute time
+    // by looking up each contact's Phone field in the Twilio_SMS_DE data extension.
+    payload['arguments'].execute.inArguments = [{
+        "accountSid":       accountSid,
+        "authToken":        authToken,
+        "messagingService": messagingService,
+        "body":             body,
+        "to":               "{{Contact.Attribute.Twilio_SMS_DE.Phone}}",
+        "email":            "{{Contact.Default.EmailAddress}}"
+    }];
+
+    // Mark the activity as configured — SFMC will NOT call /execute if this is false
+    payload['metaData'].isConfigured = true;
+
+    console.log('[CA] Saving payload:', JSON.stringify(payload));
+    $('#status').text('Saving...');
+
+    connection.trigger('updateActivity', payload);
+});
+
+// ── Bonus: handle requestedTokens / requestedEndpoints if needed later ────────
+connection.on('requestedTokens', function(tokens) {
+    console.log('[CA] tokens:', JSON.stringify(tokens));
+});
+
+connection.on('requestedEndpoints', function(endpoints) {
+    console.log('[CA] endpoints:', JSON.stringify(endpoints));
+});
+</script>
+
 </body>
 </html>

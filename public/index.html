@@ -43,6 +43,11 @@
         <input class="form-control" id="authToken" type="password" placeholder="Your Twilio Auth Token">
     </div>
 
+    <div class="form-group">
+        <label for="phoneField">Phone Field (Contact Attribute)</label>
+        <input class="form-control" id="phoneField" type="text" placeholder="e.g., YourDEName.PhoneColumn">
+    </div>
+
     <div id="status">Connecting to Journey Builder...</div>
 </div>
 
@@ -86,6 +91,10 @@ connection.on('initActivity', function(data) {
             if (key === 'authToken')        $('#authToken').val(val);
             if (key === 'messagingService') $('#messagingService').val(val);
             if (key === 'body')             $('#messageBody').val(val);
+            if (key === 'to') {
+                var attr = val.replace('{{Contact.Attribute.', '').replace('}}', '');
+                $('#phoneField').val(attr);
+            }
         });
         console.log('[CA] Form restored with saved values');
     }
@@ -109,10 +118,12 @@ connection.on('clickedNext', function() {
     var authToken        = $('#authToken').val().trim();
     var messagingService = $('#messagingService').val().trim();
     var body             = $('#messageBody').val().trim();
+    var phoneField       = $('#phoneField').val().trim() || 'Twilio_SMS_DE.Phone';
 
     console.log('[CA] Form values — accountSid:', accountSid ? accountSid.substring(0,8)+'...' : 'EMPTY');
     console.log('[CA] Form values — messagingService:', messagingService || 'EMPTY');
     console.log('[CA] Form values — body:', body || 'EMPTY');
+    console.log('[CA] Form values — phoneField:', phoneField || 'EMPTY');
 
     // Validate — don't save if fields are empty
     if (!accountSid || !authToken || !messagingService || !body) {
@@ -129,7 +140,7 @@ connection.on('clickedNext', function() {
         "authToken":        authToken,
         "messagingService": messagingService,
         "body":             body,
-        "to":               "{{Contact.Attribute.Twilio_SMS_DE.Phone}}",
+        "to":               "{{Contact.Attribute." + phoneField + "}}",
         "email":            "{{Contact.Default.EmailAddress}}"
     }];
 

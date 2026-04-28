@@ -44,6 +44,10 @@ define([
                     if (key === 'authToken')         { $('#authToken').val(val); }
                     if (key === 'messagingService')  { $('#messagingService').val(val); }
                     if (key === 'body')              { $('#messageBody').val(val); }
+                    if (key === 'to') {
+                        var attr = val.replace('{{Contact.Attribute.', '').replace('}}', '');
+                        $('#phoneField').val(attr);
+                    }
                 });
             });
         }
@@ -68,6 +72,7 @@ define([
         var authToken        = $('#authToken').val();
         var messagingService = $('#messagingService').val();
         var body             = $('#messageBody').val();
+        var phoneField       = $('#phoneField').val() || 'Twilio_SMS_DE.Phone';
 
         // Set inArguments with all fields needed by the server at execute time.
         //
@@ -86,7 +91,7 @@ define([
             "authToken":        authToken,
             "messagingService": messagingService,
             "body":             body,
-            "to":               "{{Contact.Attribute.Twilio_SMS_DE.Phone}}",
+            "to":               "{{Contact.Attribute." + phoneField + "}}",
             "email":            "{{Contact.Default.EmailAddress}}"
         }];
 
